@@ -37,6 +37,47 @@ class DeliveryError(ValueError):
     """Безопасная для показа человеку ошибка без данных transport."""
 
 
+def normalize_chat_reference(value):
+    """Разобрать целую Telegram-ссылку локально, без чтения поста/сети."""
+    from urllib.parse import parse_qs, urlsplit
+
+    error = 'Нужна ссылка на канал или его пост, @username либо проверенный числовой ID.'
+    if type(value) is int:
+        return value
+    if not isinstance(value, str):
+        raise DeliveryError(error)
+    value = value.strip()
+    if re.fullmatch(r'@[A-Za-z0-9_]{5,32}|-?[0-9]+', value):
+        return value
+    if value.lower().startswith(('t.me/', 'telegram.me/')):
+        value = 'https://' + value
+    try:
+        url = urlsplit(value)
+        if url.scheme not in ('https', 'http') or url.netloc.lower() not in ('t.me', 'telegram.me') or url.fragment:
+            raise ValueError
+        parts = url.path.strip('/').split('/')
+        query = parse_qs(url.query, keep_blank_values=True)
+        if set(query) - {'single', 't'}:
+            raise DeliveryError('Нужна ссылка на пост самого канала, без перехода к комментариям, теме или приглашению.')
+        if parts[0].startswith('+') or parts[0] == 'joinchat':
+            raise DeliveryError('Это приглашение. Откройте существующий пост канала и скопируйте ссылку на сообщение целиком.')
+        if parts[0] == 'c':
+            if len(parts) != 3 or not all(re.fullmatch(r'[1-9][0-9]*', part) for part in parts[1:]):
+                raise ValueError
+            channel_id = int(parts[1])
+            if not 1 <= channel_id <= 997852516352:
+                raise ValueError
+            return -(1000000000000 + channel_id)
+        if (len(parts) in (1, 2) and re.fullmatch(r'[A-Za-z0-9_]{5,32}', parts[0])
+                and (len(parts) == 1 or re.fullmatch(r'[1-9][0-9]*', parts[1]))):
+            return '@' + parts[0]
+    except DeliveryError:
+        raise
+    except ValueError:
+        pass
+    raise DeliveryError(error)
+
+
 class APIRejected(DeliveryError):
     def __init__(self, code=400):
         self.code = code if type(code) is int else 400
@@ -327,11 +368,7 @@ class Delivery:
         media_types = {'photo'} if media is True else set() if media is False else set(media)
         if not media_types <= {'photo', 'video'}:
             raise DeliveryError('Неизвестный тип медиа для проверки прав.')
-        if isinstance(chat, bool) or not isinstance(chat, (str, int)):
-            raise DeliveryError('Нужен точный @username или проверенный числовой chat_id.')
-        import re
-        if isinstance(chat, str) and not re.fullmatch(r'@[A-Za-z0-9_]{5,32}|-?[0-9]+', chat):
-            raise DeliveryError('Неверный формат назначения.')
+        chat = normalize_chat_reference(chat)
         if thread_id is not None and (type(thread_id) is not int or thread_id < 1):
             raise DeliveryError('message_thread_id должен быть положительным целым.')
         bot = self._call('getMe')

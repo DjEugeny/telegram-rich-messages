@@ -10,7 +10,7 @@ import time
 
 from core import Store, create_demo, import_image, import_media, import_video
 import dashboard
-from delivery import Delivery, DeliveryError, _atomic_json, load_api, set_token
+from delivery import Delivery, DeliveryError, _atomic_json, load_api, normalize_chat_reference, set_token
 from scheduling import SchedulingError
 
 
@@ -54,7 +54,7 @@ def parser():
     serve.add_argument('--port', type=int, default=8765)
     commands.add_parser('token-set', help='Только человек: скрытый ввод в терминале')
     check = commands.add_parser('check', help='Явный сетевой запрос: проверить бота, чат и права')
-    check.add_argument('--chat', required=True)
+    check.add_argument('--chat', required=True, help='Целая ссылка на канал/пост, @username либо проверенный числовой ID')
     check.add_argument('--thread-id', type=int)
     check.add_argument('--media', action='store_true', help='Проверить разрешение отправки изображений')
     discover = commands.add_parser('discover', help='Один getUpdates выделенного бота, без offset/смены webhook')
@@ -125,6 +125,9 @@ def main(argv=None):
     command = arguments.command
     store = None
     try:
+        if command == 'check':
+            # Сначала локальный разбор ссылки, затем Store/token/network.
+            arguments.chat = normalize_chat_reference(arguments.chat)
         if command == 'token-set':
             _output(set_token(root))
             return 0
