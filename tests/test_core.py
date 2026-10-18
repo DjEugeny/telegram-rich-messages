@@ -99,7 +99,7 @@ class StoreTests(unittest.TestCase):
             unicode_text = "👩🏽‍💻 ❤️ ☀️ 🏳️‍🌈"
             inline = [unicode_text, {"type": "underline", "text": "линия"}, {"type": "strikethrough", "text": "старое"}, {"type": "bold", "text": [{"type": "italic", "text": "важно"}]}, {"type": "code", "text": "<x>`"}, {"type": "custom_emoji", "text": "🔥", "custom_emoji_id": "12345"}, {"type": "link", "text": "ссылка", "url": "https://example.com/a(b)"}, "<script>bad</script>"]
             rich = compile_post({"blocks": [{"type": "quote", "text": "**Первая**\n\nВторая"}, {"type": "heading", "text": inline}, {"type": "paragraph", "text": inline}, {"type": "list", "items": [inline]}]})
-            self.assertTrue(rich["markdown"].startswith("> **Первая**\n> \n> Вторая"))
+            self.assertTrue(rich["markdown"].startswith("> **Первая**<br><br>Вторая"))
             self.assertIn("<blockquote><strong>Первая</strong><br><br>Вторая</blockquote>", rich["html"])
             self.assertIn(unicode_text, rich["html"])
             self.assertIn(unicode_text, rich["markdown"])
@@ -178,10 +178,10 @@ class StoreTests(unittest.TestCase):
 
     def test_multiline_list_items_keep_continuations_inside_same_item(self):
         unordered = compile_post({"blocks": [{"type": "list", "items": ["Первая\nПродолжение", "Вторая"]}]})
-        self.assertEqual(unordered["markdown"], "- Первая\n  Продолжение\n- Вторая")
+        self.assertEqual(unordered["markdown"], "- Первая<br>Продолжение\n- Вторая")
         self.assertEqual(unordered["html"], "<ul><li>Первая<br>Продолжение</li><li>Вторая</li></ul>")
         ordered = compile_post({"blocks": [{"type": "list", "ordered": True, "items": ["Строка"] * 9 + ["Десятая\nПродолжение"]}]})
-        self.assertTrue(ordered["markdown"].endswith("10. Десятая\n    Продолжение"))
+        self.assertTrue(ordered["markdown"].endswith("10. Десятая<br>Продолжение"))
         self.assertIn("<li>Десятая<br>Продолжение</li>", ordered["html"])
 
     def test_third_export_failure_removes_uncommitted_export_bundle(self):
@@ -384,6 +384,19 @@ class StoreTests(unittest.TestCase):
             nested = {"type": "details", "summary": "x", "blocks": [nested]}
         with self.assertRaises(ValueError):
             compile_post({"blocks": [nested]})
+
+    def test_rich_markdown_preserves_paragraph_gaps_and_manual_line_breaks(self):
+        result = compile_post({"blocks": [
+            {"type": "paragraph", "text": "Первая строка\nВторая строка"},
+            {"type": "paragraph", "text": "Следующий абзац"},
+            {"type": "quote", "text": "Цитата\n\nПродолжение"},
+        ]})
+        self.assertIn("Первая строка<br>Вторая строка\n\n\u00a0\n\nСледующий абзац", result["markdown"])
+        self.assertIn("> Цитата<br><br>Продолжение", result["markdown"])
+        self.assertIn("<p>Первая строка<br>Вторая строка</p><p>Следующий абзац</p>", result["html"])
+        with self.assertRaisesRegex(ValueError, "500 блоков"):
+            compile_post({"blocks": [{"type": "paragraph", "text": "Абзац"}] * 251})
+
     def test_versions_survive_reopen_and_exports_match_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
             store = Store(directory)

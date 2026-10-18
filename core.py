@@ -529,6 +529,11 @@ def _md_literal(value):
     return escaped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _md_text(value):
+    # Rich Markdown сворачивает обычный перевод строки внутри абзаца в пробел.
+    return _md_literal(value).replace("\n", "<br>")
+
+
 _INLINE = re.compile(r"(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|\[[^\]\n]+\]\([^\s)]+\))")
 
 
@@ -549,7 +554,7 @@ def _inline(value, depth=1, literal=False, in_link=False):
             text = node.get("text")
             if kind in ("text", "custom_emoji"):
                 text = _text(text)
-                md, rendered = _md_literal(text), html.escape(text).replace("\n", "<br>")
+                md, rendered = _md_text(text), html.escape(text).replace("\n", "<br>")
                 if kind == "custom_emoji":
                     identifier = node.get("custom_emoji_id")
                     if not isinstance(identifier, str) or not re.fullmatch(r"[0-9]{1,32}", identifier) or not text.strip() or len(text) > 64 or "\n" in text or "\r" in text:
@@ -578,12 +583,12 @@ def _inline(value, depth=1, literal=False, in_link=False):
         return "".join(pair[0] for pair in pairs), "".join(pair[1] for pair in pairs)
     value = _text(value)
     if literal:
-        return _md_literal(value), html.escape(value).replace("\n", "<br>")
+        return _md_text(value), html.escape(value).replace("\n", "<br>")
     markdown, rendered = [], []
     cursor = 0
     for match in _INLINE.finditer(value):
         literal = value[cursor:match.start()]
-        markdown.append(_md_literal(literal))
+        markdown.append(_md_text(literal))
         rendered.append(html.escape(literal).replace("\n", "<br>"))
         token = match.group()
         if token.startswith("["):
@@ -601,7 +606,7 @@ def _inline(value, depth=1, literal=False, in_link=False):
             rendered.append(f"<{tag}>" + html.escape(inner) + f"</{tag}>")
         cursor = match.end()
     literal = value[cursor:]
-    markdown.append(_md_literal(literal))
+    markdown.append(_md_text(literal))
     rendered.append(html.escape(literal).replace("\n", "<br>"))
     return "".join(markdown), "".join(rendered)
 
@@ -653,6 +658,7 @@ def compile_post(post):
         if not isinstance(blocks, list) or depth > 16:
             raise ValueError("Неверные блоки или вложенность больше 16")
         md_parts, html_parts = [], []
+        previous_kind = None
         for block in blocks:
             if not isinstance(block, dict):
                 raise ValueError("Блок должен быть объектом")
@@ -719,8 +725,16 @@ def compile_post(post):
                 raise ValueError(f"Неподдерживаемый тип блока: {kind!r}")
             if counter[0] > 500 or len(media) > 50:
                 raise ValueError("Превышен лимит 500 блоков или 50 медиа")
+            if previous_kind == kind == "paragraph":
+                # Клиент Telegram рисует соседние paragraph без промежутка.
+                # Содержательный пустой абзац сохраняет видимый интервал.
+                md_parts.append("\u00a0")
+                counter[0] += 1
+                if counter[0] > 500:
+                    raise ValueError("Превышен лимит 500 блоков или 50 медиа")
             md_parts.append(md)
             html_parts.append(rendered)
+            previous_kind = kind
         return "\n\n".join(md_parts), "".join(html_parts)
 
     markdown, rendered = render(post.get("blocks"))

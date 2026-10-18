@@ -12,6 +12,7 @@ from core import Store, create_demo, import_image, import_media, import_video
 import dashboard
 from delivery import Delivery, DeliveryError, _atomic_json, load_api, normalize_chat_reference, set_token
 from scheduling import SchedulingError
+from text_blocks import parse_text_blocks
 
 
 class MediaArgument(argparse.Action):
@@ -153,7 +154,7 @@ def main(argv=None):
                 blocks = json.loads(_read(arguments.blocks))
             elif arguments.text is not None or arguments.file:
                 text = arguments.text if arguments.text is not None else _read(arguments.file)
-                blocks = [{'type': 'paragraph', 'text': text}]
+                blocks = parse_text_blocks(text)
             if arguments.media_inputs:
                 # Новые файлы добавляются к сохранённым блокам, без изменения старых.
                 blocks = blocks if blocks is not None else store.get(arguments.post_id)['blocks'] if command == 'update' else []
