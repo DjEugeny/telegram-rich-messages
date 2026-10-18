@@ -23,11 +23,13 @@ class MediaArgument(argparse.Action):
 
 
 def parser():
-    result = argparse.ArgumentParser(description='Telegram Rich Messages: подготовка и непосредственная отправка. Отложка отложена; schedule-* сохранены для истории и восстановления.')
+    result = argparse.ArgumentParser(description='Telegram Rich Messages: подготовка, просмотр и публикация постов через агента.')
     result.add_argument('--root', type=Path, default=Path(__file__).resolve().parent, help='Корень материалов и SQLite')
     commands = result.add_subparsers(dest='command', required=True)
     commands.add_parser('demo', help='Вымышленный локальный пример без токена')
     commands.add_parser('demo-media', help='Четыре вымышленных примера с изображениями, видео и цитатами')
+    preview = commands.add_parser('preview-demo', help='Временное демо без добавления постов в личную историю')
+    preview.add_argument('--port', type=int, default=8765)
     for name in ('create', 'import', 'update'):
         command = commands.add_parser(name, help='Сохранить локальную версию, без отправки')
         if name == 'update':
@@ -125,6 +127,16 @@ def main(argv=None):
     try:
         if command == 'token-set':
             _output(set_token(root))
+            return 0
+        if command == 'preview-demo':
+            import tempfile
+            from demo_media import create_demo_media
+            with tempfile.TemporaryDirectory(prefix='telegram-rich-demo-') as directory:
+                demo_root = Path(directory)
+                create_demo(demo_root)
+                create_demo_media(demo_root)
+                dashboard.build(demo_root, demo=True)
+                dashboard.serve(demo_root, arguments.port)
             return 0
         store = Store(root)
         if command == 'demo':

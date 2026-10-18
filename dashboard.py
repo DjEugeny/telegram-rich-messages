@@ -24,7 +24,7 @@ SCHEDULE_FIELDS = (
 )
 
 
-def build(root):
+def build(root, demo=False):
     """Собрать index.html из текущих версий; сетевых запросов нет."""
     from core import Store, compile_post
     from scheduling import Scheduling
@@ -70,7 +70,11 @@ def build(root):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(assets.parent / relative, target)
     payload = json.dumps(posts, ensure_ascii=False).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-    page = (assets / "shell.html").read_text(encoding="utf-8").replace("__CSP__", CSP).replace("__POST_DATA__", payload)
+    workspace = "Демонстрация" if demo else "Локальная мастерская"
+    storage_note = "Демонстрационные материалы. В личной истории они не сохраняются." if demo else "Материалы хранятся в папке проекта на этом компьютере."
+    page = ((assets / "shell.html").read_text(encoding="utf-8")
+            .replace("__CSP__", CSP).replace("__POST_DATA__", payload)
+            .replace("__WORKSPACE_LABEL__", workspace).replace("__STORAGE_NOTE__", storage_note))
     handle, temporary = tempfile.mkstemp(prefix=".index-", suffix=".html", dir=root)
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
