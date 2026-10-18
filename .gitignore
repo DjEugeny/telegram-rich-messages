@@ -1,0 +1,15 @@
+.env
+.env.*
+*.pem
+secrets/
+data/
+posts/
+media/
+index.html
+output/
+__pycache__/
+*.pyc
+.DS_Store
+.autopilot/
+node_modules/
+config.local.json

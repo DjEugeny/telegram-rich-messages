@@ -571,8 +571,8 @@ class Scheduling:
             published = operation["result"] if operation["status"] == "published" else None
             published_id = published.get("message_id") if isinstance(published, dict) else None
             evidence = published.get("evidence") if isinstance(published, dict) else None
-            items.append({"id": operation["id"], "status": operation["status"],
-                          "version": snapshot.get("version"),
+            items.append({"id": operation["id"], "post_id": snapshot.get("post_id"),
+                          "status": operation["status"], "version": snapshot.get("version"),
                           "channel": snapshot.get("channel"), "channel_title": snapshot.get("channel"),
                           "send_at": snapshot.get("iso"), "send_date": snapshot.get("send_date"),
                           "timezone": snapshot.get("timezone"),

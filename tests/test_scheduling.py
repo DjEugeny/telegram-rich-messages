@@ -181,13 +181,16 @@ class SchedulingExecuteTests(unittest.TestCase):
             self.assertEqual(listed["proposal_message_id"], 55)
             self.assertFalse(listed["live_verified"])
             self.assertFalse(listed["experimental"] is False)
-            self.assertNotIn("post_id", listed)
+            self.assertEqual(listed["post_id"], post["id"])
             self.assertEqual(
                 set(listed),
-                {"id", "status", "version", "channel", "channel_title",
+                {"id", "post_id", "status", "version", "channel", "channel_title",
                  "send_at", "send_date", "timezone", "proposal_message_id",
                  "published_message_id", "source", "evidence", "last_error",
                  "experimental", "live_verified"})
+            self.assertNotIn("snapshot", listed)
+            self.assertNotIn("receipt", listed)
+            self.assertNotIn("fingerprint", listed)
             manager.store.conn.close()
 
     def test_recover_moves_interrupted_sending_to_unknown_and_restores_receipt(self):

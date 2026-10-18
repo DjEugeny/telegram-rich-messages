@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T00:55:32+07:00",
+  "title": "Дизайн-система дашборда Telegram Rich Messages",
+  "extensions": {
+    "colorMeta": {
+      "ink": {"role": "neutral", "displayName": "Чернильный текст", "canonical": "#17181c", "tonalRamp": ["oklch(15% 0.008 265)", "oklch(26% 0.008 265)", "oklch(38% 0.008 265)", "oklch(49% 0.008 265)", "oklch(61% 0.008 265)", "oklch(72% 0.008 265)", "oklch(84% 0.008 265)", "oklch(95% 0.008 265)"]},
+      "muted": {"role": "neutral", "displayName": "Прохладный вторичный текст", "canonical": "#626976", "tonalRamp": ["oklch(15% 0.023 260)", "oklch(26% 0.023 260)", "oklch(38% 0.023 260)", "oklch(49% 0.023 260)", "oklch(61% 0.023 260)", "oklch(72% 0.023 260)", "oklch(84% 0.023 260)", "oklch(95% 0.023 260)"]},
+      "paper": {"role": "neutral", "displayName": "Белая бумага", "canonical": "#ffffff", "tonalRamp": ["oklch(15% 0 0)", "oklch(26% 0 0)", "oklch(38% 0 0)", "oklch(49% 0 0)", "oklch(61% 0 0)", "oklch(72% 0 0)", "oklch(84% 0 0)", "oklch(95% 0 0)"]},
+      "canvas": {"role": "neutral", "displayName": "Прохладная подложка", "canonical": "#f4f7fb", "tonalRamp": ["oklch(15% 0.007 254)", "oklch(26% 0.007 254)", "oklch(38% 0.007 254)", "oklch(49% 0.007 254)", "oklch(61% 0.007 254)", "oklch(72% 0.007 254)", "oklch(84% 0.007 254)", "oklch(95% 0.007 254)"]},
+      "line": {"role": "neutral", "displayName": "Тихая граница", "canonical": "#dfe4eb", "tonalRamp": ["oklch(15% 0.011 255)", "oklch(26% 0.011 255)", "oklch(38% 0.011 255)", "oklch(49% 0.011 255)", "oklch(61% 0.011 255)", "oklch(72% 0.011 255)", "oklch(84% 0.011 255)", "oklch(95% 0.011 255)"]},
+      "line-strong": {"role": "neutral", "displayName": "Контрольная граница", "canonical": "#cbd2dd", "tonalRamp": ["oklch(15% 0.017 260)", "oklch(26% 0.017 260)", "oklch(38% 0.017 260)", "oklch(49% 0.017 260)", "oklch(61% 0.017 260)", "oklch(72% 0.017 260)", "oklch(84% 0.017 260)", "oklch(95% 0.017 260)"]},
+      "focus": {"role": "primary", "displayName": "Чёткий синий focus", "canonical": "#2f80ed", "tonalRamp": ["oklch(15% 0.18 258)", "oklch(26% 0.18 258)", "oklch(38% 0.18 258)", "oklch(49% 0.18 258)", "oklch(61% 0.18 258)", "oklch(72% 0.18 258)", "oklch(84% 0.18 258)", "oklch(95% 0.18 258)"]},
+      "link": {"role": "primary", "displayName": "Спокойный синий ссылки", "canonical": "#245aa1", "tonalRamp": ["oklch(15% 0.13 257)", "oklch(26% 0.13 257)", "oklch(38% 0.13 257)", "oklch(49% 0.13 257)", "oklch(61% 0.13 257)", "oklch(72% 0.13 257)", "oklch(84% 0.13 257)", "oklch(95% 0.13 257)"]},
+      "success": {"role": "semantic", "displayName": "Подтверждённый результат", "canonical": "#176944", "tonalRamp": ["oklch(15% 0.10 156)", "oklch(26% 0.10 156)", "oklch(38% 0.10 156)", "oklch(49% 0.10 156)", "oklch(61% 0.10 156)", "oklch(72% 0.10 156)", "oklch(84% 0.10 156)", "oklch(95% 0.10 156)"]},
+      "warning": {"role": "semantic", "displayName": "Внимание к результату", "canonical": "#855315", "tonalRamp": ["oklch(15% 0.10 69)", "oklch(26% 0.10 69)", "oklch(38% 0.10 69)", "oklch(49% 0.10 69)", "oklch(61% 0.10 69)", "oklch(72% 0.10 69)", "oklch(84% 0.10 69)", "oklch(95% 0.10 69)"]},
+      "warning-bg": {"role": "semantic", "displayName": "Подложка предупреждения", "canonical": "#fff7e8", "tonalRamp": ["oklch(15% 0.022 81)", "oklch(26% 0.022 81)", "oklch(38% 0.022 81)", "oklch(49% 0.022 81)", "oklch(61% 0.022 81)", "oklch(72% 0.022 81)", "oklch(84% 0.022 81)", "oklch(95% 0.022 81)"]},
+      "error": {"role": "semantic", "displayName": "Ошибка", "canonical": "#a73535", "tonalRamp": ["oklch(15% 0.15 24)", "oklch(26% 0.15 24)", "oklch(38% 0.15 24)", "oklch(49% 0.15 24)", "oklch(61% 0.15 24)", "oklch(72% 0.15 24)", "oklch(84% 0.15 24)", "oklch(95% 0.15 24)"]},
+      "error-bg": {"role": "semantic", "displayName": "Подложка ошибки", "canonical": "#fff0ef", "tonalRamp": ["oklch(15% 0.017 23)", "oklch(26% 0.017 23)", "oklch(38% 0.017 23)", "oklch(49% 0.017 23)", "oklch(61% 0.017 23)", "oklch(72% 0.017 23)", "oklch(84% 0.017 23)", "oklch(95% 0.017 23)"]}
+    },
+    "typographyMeta": {
+      "headline": {"displayName": "Заголовок страницы", "purpose": "Основная desktop-иерархия."},
+      "headline-mobile": {"displayName": "Заголовок на узком экране", "purpose": "До 780 px."},
+      "title": {"displayName": "Заголовок раздела", "purpose": "Предпросмотр, метаданные, история."},
+      "body": {"displayName": "Основной текст", "purpose": "Чтение и рабочие контролы."},
+      "label": {"displayName": "Подпись поля", "purpose": "Подписи над input/select."},
+      "mono": {"displayName": "Технический идентификатор", "purpose": "ID сообщения и технические данные."}
+    },
+    "shadows": [],
+    "motion": [
+      {"name": "ease-standard", "value": "cubic-bezier(.16,1,.3,1)", "purpose": "Кривая перехода состояния контурной кнопки."},
+      {"name": "button-transition", "value": "background 160ms cubic-bezier(.16,1,.3,1), border-color 160ms cubic-bezier(.16,1,.3,1)", "purpose": "Короткая смена hover; при prefers-reduced-motion переходы отключены."}
+    ],
+    "breakpoints": [
+      {"name": "wide-filters-min", "value": "1350px"},
+      {"name": "compact-columns-max", "value": "1100px"},
+      {"name": "stacked-max", "value": "780px"},
+      {"name": "mobile-max", "value": "500px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Контурная кнопка",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Переход между страницами истории.",
+      "html": "<button class=\"ds-button\" type=\"button\">Далее</button>",
+      "css": ".ds-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid var(--line-strong,#cbd2dd);border-radius:var(--radius,4px);padding:8px 16px;background:var(--paper,#fff);color:var(--ink,#17181c);font:500 13px/1.6 Onest,'Segoe UI',sans-serif;cursor:pointer;transition:background 160ms var(--ease,cubic-bezier(.16,1,.3,1)),border-color 160ms var(--ease,cubic-bezier(.16,1,.3,1))}.ds-button:hover:enabled{background:var(--canvas,#f4f7fb);border-color:#8995a7}.ds-button:active:enabled{background:#e7edf6}.ds-button:disabled{opacity:.45;cursor:default}.ds-button:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}@media(prefers-reduced-motion:reduce){.ds-button{transition:none}}"
+    },
+    {
+      "name": "Текстовая кнопка",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Сброс фильтров или выбранного дня.",
+      "html": "<button class=\"ds-text-button\" type=\"button\">Сбросить фильтры</button>",
+      "css": ".ds-text-button{border:0;padding:4px 0;color:#245aa1;background:none;font:400 13px/1.6 Onest,'Segoe UI',sans-serif;cursor:pointer}.ds-text-button:hover{text-decoration:underline;text-underline-offset:4px}.ds-text-button:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}"
+    },
+    {
+      "name": "Поле поиска",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Подпись над полем и явный клавиатурный focus.",
+      "html": "<label class=\"ds-label\" for=\"ds-search\">Найти пост<input class=\"ds-input\" id=\"ds-search\" type=\"search\" placeholder=\"Название или текст\"></label>",
+      "css": ".ds-label{display:flex;flex-direction:column;gap:7px;color:var(--ink,#17181c);font:550 13px/1.6 Onest,'Segoe UI',sans-serif}.ds-input{min-height:44px;border:1px solid var(--line-strong,#cbd2dd);border-radius:var(--radius,4px);padding:10px 12px;background:var(--paper,#fff);color:var(--ink,#17181c);min-width:0;font:400 15px/1.4 Onest,'Segoe UI',sans-serif;caret-color:var(--focus,#2f80ed)}.ds-input::placeholder{color:var(--muted,#626976);opacity:1}.ds-input:hover{border-color:#8995a7}.ds-input:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}"
+    },
+    {
+      "name": "Вкладки",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Активное состояние определяется aria-current.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Разделы\"><button type=\"button\" aria-current=\"page\">Пост</button><button type=\"button\">История</button></nav>",
+      "css": ".ds-tabs{display:flex;border-bottom:1px solid var(--line,#dfe4eb);gap:28px}.ds-tabs button{border:0;border-bottom:2px solid transparent;padding:0 0 14px;color:var(--muted,#626976);background:none;font:600 15px/1.6 Onest,'Segoe UI',sans-serif;min-width:54px;text-align:left;cursor:pointer}.ds-tabs button[aria-current]{border-bottom-color:var(--ink,#17181c);color:var(--ink,#17181c)}.ds-tabs button:hover{color:var(--ink,#17181c)}.ds-tabs button:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}"
+    },
+    {
+      "name": "Статус",
+      "kind": "custom",
+      "refersTo": "status",
+      "description": "Текст с точкой; пример неизвестного результата.",
+      "html": "<span class=\"ds-status ds-unknown\">Результат неизвестен</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;gap:7px;font:400 12px/1.4 Onest,'Segoe UI',sans-serif;white-space:nowrap;color:var(--muted,#626976)}.ds-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}.ds-status.ds-published{color:var(--success,#176944)}.ds-status.ds-error{color:var(--error,#a73535)}.ds-status.ds-sending,.ds-status.ds-unknown{color:var(--warning,#855315)}"
+    },
+    {
+      "name": "Превью с раскрытием",
+      "kind": "card",
+      "refersTo": "preview",
+      "description": "Плоская область материала с нативным details.",
+      "html": "<article class=\"ds-preview\"><h2>Пробный пост</h2><p>Это вымышленный пример.</p><details><summary>Что внутри</summary><p>Локальный черновик.</p></details></article>",
+      "css": ".ds-preview{padding:30px 32px;background:var(--canvas,#f4f7fb);border-radius:var(--radius,4px);color:var(--ink,#17181c);font:400 15px/1.6 Onest,'Segoe UI',sans-serif;overflow-wrap:anywhere;min-height:240px;max-width:100%}.ds-preview h2{font-size:22px;line-height:1.25;letter-spacing:-.018em;font-weight:650;margin:0 0 12px}.ds-preview p{margin:14px 0;max-width:72ch}.ds-preview details{border-block:1px solid var(--line-strong,#cbd2dd);padding:14px 0;margin:20px 0}.ds-preview summary{cursor:pointer;font-weight:600}.ds-preview details[open] summary{margin-bottom:12px}.ds-preview summary:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}@media(max-width:780px){.ds-preview{padding:24px}}@media(max-width:500px){.ds-preview{padding:20px;font-size:14px}.ds-preview h2{font-size:20px}}"
+    },
+    {
+      "name": "Выбранный день",
+      "kind": "custom",
+      "refersTo": "calendar-day-selected",
+      "description": "Кнопка календаря с точкой наличия постов.",
+      "html": "<button class=\"ds-calendar-day\" type=\"button\" aria-pressed=\"true\" aria-label=\"18 октября, постов: 1\">18</button>",
+      "css": ".ds-calendar-day{border:0;border-radius:var(--radius,4px);background:transparent;color:var(--ink,#17181c);height:32px;width:32px;position:relative;font:400 12px/1.6 Onest,'Segoe UI',sans-serif;padding:0;font-variant-numeric:tabular-nums;cursor:pointer}.ds-calendar-day::after{content:'';position:absolute;bottom:3px;left:calc(50% - 1.5px);width:3px;height:3px;border-radius:50%;background:#245aa1}.ds-calendar-day:hover:enabled{background:#e1eaf9}.ds-calendar-day[aria-pressed=true]{background:#245aa1;color:#fff}.ds-calendar-day[aria-pressed=true]::after{background:#fff}.ds-calendar-day:disabled{color:#747d8b;cursor:default}.ds-calendar-day:focus-visible{outline:2px solid var(--ink,#17181c);outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Локальная мастерская",
+    "overview": "Спокойная рабочая поверхность в режиме Operate: текст и материал ведут взгляд, цвет отмечает состояние, выбор и focus. Визуальная основа по прямому указанию пользователя — `/Users/evgenyzach/Project/voice-typing-manual/style.css`. Сохранены локальные шрифты, нейтральная палитра, геометрия контролов и ритм; источник не менялся.\n\nДокумент описывает фактический `web/style.css` и компоненты `web/shell.html`/`web/app.js`. Сценарий этой поверхности зафиксирован отдельно в `web/SURFACE-BRIEF.md`. Маркетинговая композиция исходного проекта сюда не переносится.",
+    "keyCharacteristics": ["Светлая бумага и прохладная подложка.", "Onest для чтения, JetBrains Mono для технических идентификаторов.", "Тонкие границы, компактные контролы и явный клавиатурный focus.", "Цветовое состояние сопровождается текстом."],
+    "rules": [
+      {"name": "The Status With Words Rule", "body": "Цвет состояния всегда сопровождается читаемым текстом.", "section": "colors"},
+      {"name": "The Reading Hierarchy Rule", "body": "Заголовок страницы, заголовок раздела и основной текст сохраняют разный размер и вес.", "section": "typography"},
+      {"name": "The Contained Overflow Rule", "body": "Широкий материал прокручивается внутри превью или таблицы, не расширяя всю страницу.", "section": "layout"},
+      {"name": "The Quiet Surface Rule", "body": "В этой рабочей поверхности материал отделяется тоном и границей.", "section": "elevation"}
+    ],
+    "dos": ["Do Сохранять локальные Onest и JetBrains Mono и их лицензии.", "Do Сопровождать цвет состояния читаемой подписью.", "Do Сохранять внешний клавиатурный focus и reduced motion.", "Do Проверять ширину страницы и внутреннюю прокрутку таблиц на mobile."],
+    "donts": ["Don't Подменять рабочую иерархию одинаковым размером текста.", "Don't Считать календарь расписанием: он фильтрует историю.", "Don't Переносить маркетинговые сценарии voice-typing-manual в дашборд."]
+  }
+}
