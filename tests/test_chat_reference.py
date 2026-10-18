@@ -13,6 +13,38 @@ import tool
 
 
 class ChatReferenceTests(unittest.TestCase):
+    def test_draft_create_import_update_accept_same_links_without_token(self):
+        def run(directory, *args):
+            with redirect_stdout(io.StringIO()) as output, redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(tool.main(['--root', directory, *args]), 0, errors.getvalue())
+            return json.loads(output.getvalue())
+
+        with tempfile.TemporaryDirectory() as directory, patch('tool.load_api', side_effect=AssertionError('Токен запрещён')):
+            draft = run(directory, 'create', '--title', 'Без канала', '--text', 'Мой материал')
+            self.assertEqual(draft['destination'], {})
+            private = run(directory, 'import', '--title', 'Приватный', '--text', 'Материал',
+                          '--chat', 'https://t.me/c/456/7')
+            self.assertEqual(private['destination'], {'chat_id': -1000000000456})
+            public = run(directory, 'update', private['id'], '--chat', 'https://t.me/channel_name/42')
+            self.assertEqual(public['destination'], {'chat_id': '@channel_name'})
+            self.assertEqual(public['version'], 2)
+            previous = run(directory, 'show', private['id'], '--version', '1')
+            self.assertEqual(previous['destination'], private['destination'])
+
+    def test_bad_draft_reference_rejected_before_import_or_store(self):
+        for command in ('create', 'import', 'update'):
+            with self.subTest(command=command), tempfile.TemporaryDirectory() as directory:
+                args = [command] + (['unknown-post'] if command == 'update' else [])
+                args += ['--title', 'Материал', '--text', 'Текст', '--media', 'not-read.jpg',
+                         '--chat', 'https://t.me/+PRIVATE_INVITE']
+                with patch('tool.import_media') as importer, patch('tool.load_api') as loader:
+                    with redirect_stderr(io.StringIO()) as errors:
+                        self.assertEqual(tool.main(['--root', directory, *args]), 2)
+                    self.assertNotIn('PRIVATE_', errors.getvalue())
+                    importer.assert_not_called()
+                    loader.assert_not_called()
+                self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_public_private_links_and_existing_ids(self):
         cases = (
             ('https://t.me/channel_name', '@channel_name'),

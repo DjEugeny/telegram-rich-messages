@@ -280,8 +280,11 @@ def _jpeg_scan(raw, frame, selected, huffman, restart_interval):
 
 
 def _jpeg(data):
+    from jpeg_progressive import Progressive
+
     cursor, frame, scans, quant, huffman = 2, None, 0, set(), {}
     restart_interval, scanned = 0, set()
+    progressive = None
     while cursor < len(data):
         if data[cursor] != 255:
             raise ValueError("JPEG: отсутствует маркер")
@@ -302,13 +305,13 @@ def _jpeg(data):
             raise ValueError("JPEG: оборванный сегмент")
         value = data[cursor + 2:cursor + length]
         cursor += length
-        if marker == 0xC0:
+        if marker in (0xC0, 0xC2):
             if frame is not None or len(value) < 6:
                 raise ValueError("JPEG: неверный кадр")
             precision, height, width, count = struct.unpack_from(">BHHB", value)
             _dimensions(width, height)
             if precision != 8 or count not in (1, 3) or len(value) != 6 + 3 * count:
-                raise ValueError("JPEG: v1 поддерживает 8-bit grayscale/RGB baseline")
+                raise ValueError("JPEG: поддерживаются 8-bit grayscale/RGB baseline и progressive")
             components = {}
             for offset in range(6, len(value), 3):
                 identifier, sampling, table = value[offset:offset + 3]
@@ -316,6 +319,8 @@ def _jpeg(data):
                     raise ValueError("JPEG: неверные компоненты")
                 components[identifier] = (table, sampling >> 4, sampling & 15)
             frame = (width, height, components, marker)
+            if marker == 0xC2:
+                progressive = Progressive(frame)
         elif 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xCC):
             raise ValueError("JPEG: неподдерживаемое кодирование")
         elif marker == 0xDB:
@@ -366,13 +371,17 @@ def _jpeg(data):
             selected = []
             for offset in range(1, len(value) - 3, 2):
                 component, tables = value[offset:offset + 2]
-                if component not in frame[2] or frame[2][component][0] not in quant or component in scanned:
+                if (component not in frame[2] or frame[2][component][0] not in quant
+                        or (not progressive and component in scanned)
+                        or any(item[0] == component for item in selected)
+                        or tables >> 4 > 3 or tables & 15 > 3):
                     raise ValueError("JPEG: отсутствует таблица компонента")
-                if (0, tables >> 4) not in huffman or (1, tables & 15) not in huffman:
+                if not progressive and ((0, tables >> 4) not in huffman or (1, tables & 15) not in huffman):
                     raise ValueError("JPEG: отсутствует таблица Хаффмана")
                 selected.append((component, frame[2][component], tables))
-                scanned.add(component)
-            if value[-3:] != b"\0\x3f\0":
+                if not progressive or value[-3] == 0:
+                    scanned.add(component)
+            if not progressive and value[-3:] != b"\0\x3f\0":
                 raise ValueError("JPEG: неверный baseline scan")
             start = cursor
             while cursor < len(data):
@@ -388,7 +397,10 @@ def _jpeg(data):
                 break
             if cursor == start:
                 raise ValueError("JPEG: пустой entropy stream")
-            _jpeg_scan(data[start:cursor], frame, selected, huffman, restart_interval)
+            if progressive:
+                progressive.scan(data[start:cursor], selected, huffman, restart_interval, value[-3:])
+            else:
+                _jpeg_scan(data[start:cursor], frame, selected, huffman, restart_interval)
             scans += 1
     raise ValueError("JPEG: отсутствует EOI")
 
@@ -423,12 +435,19 @@ def import_video(root, source):
     return _import_media(root, source, video_only=True)
 
 
+class MediaValidationError(ValueError):
+    """Безопасная диагностика валидатора: без путей, URL и содержимого файла."""
+
+
 def _media_info(data):
-    if len(data) >= 8 and data[4:8] == b"ftyp":
-        width, height, duration = mp4_info(data)
-        return {"mime": "video/mp4", "extension": "mp4", "width": width, "height": height, "duration": duration}
-    mime, extension, width, height = _image_info(data)
-    return {"mime": mime, "extension": extension, "width": width, "height": height}
+    try:
+        if len(data) >= 8 and data[4:8] == b"ftyp":
+            width, height, duration = mp4_info(data)
+            return {"mime": "video/mp4", "extension": "mp4", "width": width, "height": height, "duration": duration}
+        mime, extension, width, height = _image_info(data)
+        return {"mime": mime, "extension": extension, "width": width, "height": height}
+    except ValueError as error:
+        raise MediaValidationError(str(error)) from None
 
 
 def _import_media(root, source, image_only=False, video_only=False):
@@ -458,13 +477,11 @@ def _import_media(root, source, image_only=False, video_only=False):
         except OSError:
             raise ValueError("Файл недоступен; нужен доступный локальный путь к вложению") from None
         origin = {"kind": "file", "value": str(path.absolute()), "original_name": path.name}
-    if image_only:
-        mime, extension, width, height = _image_info(data)
-        metadata = {"mime": mime, "extension": extension, "width": width, "height": height}
-    else:
-        metadata = _media_info(data)
+    metadata = _media_info(data)
+    if image_only and metadata["mime"] == "video/mp4":
+        raise MediaValidationError("Нужно изображение PNG или JPEG")
     if video_only and metadata["mime"] != "video/mp4":
-        raise ValueError("Нужно видео MP4 H.264/AVC")
+        raise MediaValidationError("Нужно видео MP4 H.264/AVC")
     media_dir = Path(root).expanduser().resolve() / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     if media_dir.is_symlink():

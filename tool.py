@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import time
 
-from core import Store, create_demo, import_image, import_media, import_video
+from core import Store, MediaValidationError, create_demo, import_image, import_media, import_video
 import dashboard
 from delivery import Delivery, DeliveryError, _atomic_json, load_api, normalize_chat_reference, set_token
 from scheduling import SchedulingError
@@ -44,7 +44,7 @@ def parser():
                              help='Повторяемые пути/прямые URL; общий порядок сохраняется; image: PNG/JPEG, video: MP4')
         command.add_argument('--media-layout', choices=('collage', 'slideshow', 'separate'), default='collage')
         command.add_argument('--media-position', choices=('before', 'after'), default='before')
-        command.add_argument('--chat', help='Точный @username либо проверенный числовой ID')
+        command.add_argument('--chat', help='Необязательно: целая ссылка канала/поста, @username либо проверенный ID')
         command.add_argument('--thread-id', type=int)
     commands.add_parser('list', help='Текущие версии и статусы')
     show = commands.add_parser('show')
@@ -126,9 +126,11 @@ def main(argv=None):
     command = arguments.command
     store = None
     try:
-        if command == 'check':
+        if command in ('check', 'create', 'import', 'update') and arguments.chat is not None:
             # Сначала локальный разбор ссылки, затем Store/token/network.
             arguments.chat = normalize_chat_reference(arguments.chat)
+        if command in ('create', 'import', 'update') and arguments.thread_id is not None and arguments.chat is None:
+            raise DeliveryError('--thread-id требует --chat.')
         if command == 'token-set':
             _output(set_token(root))
             return 0
@@ -297,6 +299,10 @@ def main(argv=None):
                     else:
                         raise SchedulingError('Отложенная публикация отключена в текущей версии и перенесена в план: docs/ROADMAP.md. Токен и сеть не использованы.')
         return 0
+    except MediaValidationError as error:
+        result = 'Черновик не сохранён' if command in ('create', 'import', 'update') else 'Операция остановлена'
+        print('Вложение не прошло проверку: ' + str(error) + '. ' + result + '; оригинал не изменён.', file=sys.stderr)
+        return 2
     except (DeliveryError, SchedulingError) as error:
         print(str(error), file=sys.stderr)
         return 2

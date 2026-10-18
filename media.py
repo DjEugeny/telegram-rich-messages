@@ -219,7 +219,13 @@ def mp4_info(data):
         if not all(sizes):
             _fail("пустой sample")
         timings = _table(data, tables, b"stts", 2)
-        if not timings or any(not n or not delta for n, delta in timings) or sum(n for n, _ in timings) != count or sum(n * delta for n, delta in timings) != duration:
+        # Некоторые muxer округляют mdhd и сумму stts по-разному. Разрешаем
+        # только один тик исходной timescale (и не больше 1 ms), не один кадр.
+        timing_duration = sum(n * delta for n, delta in timings)
+        difference = abs(timing_duration - duration)
+        if (not timings or any(not n or not delta for n, delta in timings)
+                or sum(n for n, _ in timings) != count
+                or difference > 1 or difference * 1000 > timescale):
             _fail("sample timing не совпадает с длительностью")
         for optional in (b"stss", b"ctts"):
             if any(box[0] == optional for box in tables):
