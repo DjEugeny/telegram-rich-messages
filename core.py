@@ -760,6 +760,57 @@ def compile_post(post):
     return {"markdown": markdown, "html": rendered, "media": media}
 
 
+def validate_publication_structure(post, compiled=None):
+    """Минимум структуры перед доставкой и сводка фактического оформления.
+
+    Черновики остаются свободными. Текстовая публикация требует непустого
+    заголовка верхнего уровня блоков; жирный абзац его не заменяет.
+    Сводка не оценивает смысл и не добавляет блоки за автора.
+    """
+    if compiled is None:
+        compiled = compile_post(post)
+    counts, headings = {}, []
+    top_heading = False
+
+    def visit(blocks, depth=0):
+        nonlocal top_heading
+        for block in blocks:
+            kind = block["type"]
+            counts[kind] = counts.get(kind, 0) + 1
+            if kind == "heading":
+                rendered = _inline(block["text"])[1]
+                text = html.unescape(re.sub(r"<[^>]*>", "", rendered)).strip()
+                if not text:
+                    raise ValueError("Rich Markdown: заголовок не может быть пустым.")
+                headings.append({"level": block.get("level", 2), "text": text})
+                top_heading = top_heading or depth == 0
+            elif kind == "details":
+                visit(block["blocks"], depth + 1)
+            elif kind == "media_group":
+                layout = block["layout"]
+                counts[layout] = counts.get(layout, 0) + 1
+                visit(block["items"], depth + 1)
+
+    visit(post["blocks"])
+    media_kinds = {"image", "video", "media_group"}
+    if any(block["type"] not in media_kinds for block in post["blocks"]) and not top_heading:
+        raise ValueError(
+            "Rich Markdown: текстовая публикация требует настоящего блока heading. "
+            "Жирный paragraph и название в истории не заменяют заголовок. "
+            "Оформи заголовки и остальную структуру по смыслу через --blocks, "
+            "покажи новое превью и выполни новый review."
+        )
+    tags = {"bold": "strong", "italic": "em", "underline": "u",
+            "strikethrough": "s", "code": "code"}
+    inline = {kind: len(re.findall(r"<" + tag + r"(?:\s|>)", compiled["html"]))
+              for kind, tag in tags.items()}
+    # Служебные ссылки на оригиналы медиа и кнопки не являются inline-ссылками.
+    inline["link"] = len(re.findall(r'<a href=', compiled["html"]))
+    inline["custom_emoji"] = compiled["html"].count('class="custom-emoji"')
+    return {"format": "rich_markdown", "blocks": counts, "headings": headings,
+            "inline": {kind: count for kind, count in inline.items() if count}}
+
+
 def validate_media(root, post):
     """Проверка перед сохранением/доставкой: путь, SHA256 и содержимое медиа."""
     root = Path(root).expanduser().resolve()

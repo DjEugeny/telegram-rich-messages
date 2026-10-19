@@ -52,7 +52,8 @@ class DeliveryTests(unittest.TestCase):
         self.store = Store(self.root)
         self.api = FakeAPI()
         self.manager = delivery.Delivery(self.store, self.api)
-        self.post = self.store.create('Черновик', [{'type': 'paragraph', 'text': 'Согласованный текст'}], {'chat_id': '@fictional'})
+        self.heading = {'type': 'heading', 'level': 2, 'text': 'Черновик'}
+        self.post = self.store.create('Черновик', [self.heading, {'type': 'paragraph', 'text': 'Согласованный текст'}], {'chat_id': '@fictional'})
 
     def tearDown(self):
         self.store.conn.close()
@@ -233,6 +234,109 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(sum(c[0] == 'sendRichMessage' for c in self.api.calls), 1)
         self.assertEqual(self.store.get(self.post['id'])['status'], 'published')
 
+    def test_plain_or_bold_title_is_draft_only_and_cli_never_loads_secret(self):
+        for text in ('Заголовок', '**Заголовок**', '# Заголовок'):
+            with self.subTest(text=text):
+                post = self.store.create('Название в истории', [{'type': 'paragraph', 'text': text}], {'chat_id': '@fictional'})
+                before = len(self.api.calls)
+                with self.assertRaisesRegex(delivery.DeliveryError, 'настоящего блока heading'):
+                    self.manager.review(post['id'])
+                self.assertEqual(len(self.api.calls), before)
+                with patch('tool.load_api') as loader, contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertEqual(tool.main(['--root', str(self.root), 'review', post['id'], '--action', 'send']), 2)
+                loader.assert_not_called()
+                self.assertIn('настоящего блока heading', err.getvalue())
+                self.assertEqual(self.store.get(post['id'])['version'], 1)
+                self.assertEqual(self.store.conn.execute('SELECT count(*) FROM operations WHERE post_id=?', (post['id'],)).fetchone()[0], 0)
+
+    def test_rich_structure_survives_review_send_and_edit(self):
+        from core import compile_post
+        blocks = [
+            {'type': 'heading', 'level': 1, 'text': 'Тема'},
+            {'type': 'paragraph', 'text': [{'type': 'bold', 'text': 'Важно'}, ' и ', {'type': 'link', 'text': 'источник', 'url': 'https://example.com'}]},
+            {'type': 'heading', 'level': 2, 'text': 'Раздел'},
+            {'type': 'list', 'items': ['Первый', 'Второй']},
+            {'type': 'heading', 'level': 3, 'text': 'Шаги'},
+            {'type': 'list', 'ordered': True, 'items': ['Начало', 'Конец']},
+            {'type': 'quote', 'text': 'Предоставленная цитата'},
+            {'type': 'table', 'headers': ['Вариант', 'Цена'], 'rows': [['А', '100']]},
+            {'type': 'details', 'summary': 'Подробности', 'blocks': [
+                {'type': 'heading', 'level': 4, 'text': 'Деталь'},
+                {'type': 'paragraph', 'text': [{'type': 'code', 'text': 'x < 2'}]}]},
+            {'type': 'heading', 'level': 5, 'text': 'Примечание'},
+            {'type': 'heading', 'level': 6, 'text': 'Источник'},
+            {'type': 'button', 'text': 'Открыть', 'url': 'https://example.com'},
+        ]
+        post = self.store.update(self.post['id'], blocks=blocks)
+        compiled = compile_post(post)
+        operation = self.manager.review(post['id'])
+        formatting = operation['snapshot']['formatting']
+        self.assertEqual(formatting['format'], 'rich_markdown')
+        self.assertEqual([h['level'] for h in formatting['headings']], [1, 2, 3, 4, 5, 6])
+        self.assertEqual(formatting['blocks']['list'], 2)
+        for kind in ('quote', 'table', 'details', 'button'):
+            self.assertEqual(formatting['blocks'][kind], 1)
+        self.assertEqual(formatting['inline'], {'bold': 1, 'link': 1, 'code': 1})
+        self.manager.execute(operation['id'], operation['fingerprint'])
+        sent = next(c for c in self.api.calls if c[0] == 'sendRichMessage')[1]
+        self.assertEqual(sent['rich_message']['markdown'], compiled['markdown'])
+        self.assertNotIn('parse_mode', sent)
+        for marker in ('# Тема', '## Раздел', '### Шаги', '#### Деталь', '##### Примечание', '###### Источник', '- Первый', '1. Начало', '> Предоставленная цитата', '| Вариант | Цена |', '<details>', '<tg-button'):
+            self.assertIn(marker, sent['rich_message']['markdown'])
+        for tag in ('<h1>', '<h6>', '<ul>', '<ol>', '<blockquote>', '<table>', '<details>'):
+            self.assertIn(tag, compiled['html'])
+        self.store.update(post['id'], blocks=blocks + [{'type': 'paragraph', 'text': 'Уточнение'}])
+        edit = self.manager.review(post['id'], action='edit')
+        self.manager.execute(edit['id'], edit['fingerprint'])
+        edited = next(c for c in self.api.calls if c[0] == 'editMessageText')[1]
+        self.assertEqual(edited['message_id'], 77)
+        self.assertEqual(edited['rich_message']['markdown'], edit['snapshot']['markdown'])
+        self.assertFalse(any(c[0] == 'sendMessage' for c in self.api.calls))
+
+    def test_legacy_review_without_structure_is_blocked_before_network(self):
+        plain = self.store.create('Старый черновик', [{'type': 'paragraph', 'text': '**Жирный заголовок**'}], {'chat_id': '@fictional'})
+        for post in (plain, self.post):
+            with self.subTest(post_id=post['id']):
+                # Воссоздать review прежней версии сервиса, не включая обход в продукт.
+                with patch('delivery.publication_format', return_value={}):
+                    operation = self.manager.review(post['id'])
+                snapshot = dict(operation['snapshot'])
+                snapshot.pop('formatting')
+                fingerprint = delivery._digest({'legacy': operation['id'], 'snapshot': snapshot})
+                with self.store.conn:
+                    self.store.conn.execute('UPDATE operations SET snapshot=?,fingerprint=? WHERE id=?',
+                                            (delivery._json(snapshot), fingerprint, operation['id']))
+                before = len(self.api.calls)
+                with self.assertRaises(delivery.DeliveryError):
+                    self.manager.execute(operation['id'], fingerprint)
+                self.assertEqual(len(self.api.calls), before)
+                with patch('tool.load_api') as loader, contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(tool.main(['--root', str(self.root), 'execute', operation['id'], '--fingerprint', fingerprint]), 2)
+                loader.assert_not_called()
+                self.assertEqual(self.manager.operation(operation['id'])['status'], 'reviewed')
+
+    def test_compiler_change_after_review_requires_fresh_approval(self):
+        from core import compile_post
+        operation = self.manager.review(self.post['id'])
+        changed = compile_post(self.post)
+        changed['markdown'] += '\n\nДругой результат новой версии compiler'
+        before = len(self.api.calls)
+        with patch('delivery.compile_post', return_value=changed):
+            with self.assertRaisesRegex(delivery.DeliveryError, 'результат компиляции изменились'):
+                self.manager.execute(operation['id'], operation['fingerprint'])
+        self.assertEqual(len(self.api.calls), before)
+        self.assertEqual(self.manager.operation(operation['id'])['status'], 'reviewed')
+
+    def test_edit_cannot_remove_structure(self):
+        operation = self.manager.review(self.post['id'])
+        self.manager.execute(operation['id'], operation['fingerprint'])
+        self.store.update(self.post['id'], blocks=[{'type': 'paragraph', 'text': '**Плоская правка**'}])
+        before = len(self.api.calls)
+        with self.assertRaisesRegex(delivery.DeliveryError, 'настоящего блока heading'):
+            self.manager.review(self.post['id'], action='edit')
+        self.assertEqual(len(self.api.calls), before)
+        self.assertEqual(self.store.get(self.post['id'])['publication']['message_id'], 77)
+
     def test_transport_hides_token_in_network_exception(self):
         token = SYNTHETIC_CANARY_TOKEN
         transport = delivery.TelegramAPI(token)
@@ -304,11 +408,11 @@ class DeliveryTests(unittest.TestCase):
         image = next(b for b in create_demo(self.root)['blocks'] if b['type'] == 'image')
         initial = [{'type': 'media_group', 'layout': 'collage', 'items': [video, image]},
                    {'type': 'paragraph', 'text': [{'type': 'custom_emoji', 'text': '⭐', 'custom_emoji_id': '123456'}]},
-                   {'type': 'quote', 'text': 'Первая цитата'}]
+                   {'type': 'quote', 'text': 'Первая цитата'}, self.heading]
         for changed in ([dict(initial[0], items=[image, video])] + initial[1:],
                         [dict(initial[0], layout='slideshow')] + initial[1:],
-                        [initial[0], {'type': 'paragraph', 'text': [{'type': 'custom_emoji', 'text': '⭐', 'custom_emoji_id': '987654'}]}, initial[2]],
-                        initial[:2] + [{'type': 'quote', 'text': 'Изменённая цитата'}]):
+                        [initial[0], {'type': 'paragraph', 'text': [{'type': 'custom_emoji', 'text': '⭐', 'custom_emoji_id': '987654'}]}, initial[2], self.heading],
+                        initial[:2] + [{'type': 'quote', 'text': 'Изменённая цитата'}, self.heading]):
             post = self.store.create('Вымышленный approval', initial, {'chat_id': '@fictional'})
             approved = self.manager.review(post['id'])
             self.store.update(post['id'], blocks=changed)
@@ -336,7 +440,7 @@ class DeliveryTests(unittest.TestCase):
         with self.assertRaises(delivery.DeliveryError):
             self.manager.verify_visual(self.post['id'])
         self.manager.verify_visual(self.post['id'], confirmed=True)
-        self.store.update(self.post['id'], blocks=[{'type': 'paragraph', 'text': 'Уточнено человеком'}])
+        self.store.update(self.post['id'], blocks=[self.heading, {'type': 'paragraph', 'text': 'Уточнено человеком'}])
         self.assertFalse(self.store.get(self.post['id'])['visual_verified'])
         operation = self.manager.review(self.post['id'], action='edit')
         result = self.manager.execute(operation['id'], operation['fingerprint'])
@@ -541,7 +645,7 @@ finally:
                 delivery.set_token(self.root)
 
     def test_bad_settings_and_no_post_permission_fail_before_sending(self):
-        post = self.store.create('Без назначения', [{'type': 'paragraph', 'text': 'Локально'}])
+        post = self.store.create('Без назначения', [self.heading, {'type': 'paragraph', 'text': 'Локально'}])
         (self.root / 'data' / 'settings.json').write_text('{broken', encoding='utf-8')
         with self.assertRaises(delivery.DeliveryError):
             self.manager.review(post['id'])
@@ -656,7 +760,7 @@ finally:
     def test_prepared_new_publications_are_bound_to_previous_publication(self):
         for already_published in (False, True):
             with self.subTest(already_published=already_published):
-                post = self.store.create('Отдельно согласуемая публикация', [{'type': 'paragraph', 'text': 'Точный текст'}], {'chat_id': '@fictional'})
+                post = self.store.create('Отдельно согласуемая публикация', [self.heading, {'type': 'paragraph', 'text': 'Точный текст'}], {'chat_id': '@fictional'})
                 if already_published:
                     initial = self.manager.review(post['id'])
                     self.manager.execute(initial['id'], initial['fingerprint'])
@@ -675,7 +779,7 @@ finally:
     def test_edit_response_with_foreign_message_id_remains_unknown(self):
         initial = self.manager.review(self.post['id'])
         self.manager.execute(initial['id'], initial['fingerprint'])
-        self.store.update(self.post['id'], blocks=[{'type': 'paragraph', 'text': 'Согласованная правка'}])
+        self.store.update(self.post['id'], blocks=[self.heading, {'type': 'paragraph', 'text': 'Согласованная правка'}])
         edit = self.manager.review(self.post['id'], action='edit')
         original = self.api.call
         def foreign_message(method, payload=None, files=None):

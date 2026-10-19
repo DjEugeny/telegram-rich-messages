@@ -17,7 +17,7 @@ import tempfile
 import uuid
 import re
 
-from core import compile_post, validate_media, MAX_IMAGE_BYTES
+from core import compile_post, validate_media, validate_publication_structure, MAX_IMAGE_BYTES
 from media import MAX_VIDEO_BYTES
 
 
@@ -35,6 +35,14 @@ def _digest(value):
 
 class DeliveryError(ValueError):
     """Безопасная для показа человеку ошибка без данных transport."""
+
+
+def publication_format(post, compiled=None):
+    """Локальный барьер структуры, общий для CLI и review/execute."""
+    try:
+        return validate_publication_structure(post, compiled)
+    except ValueError as error:
+        raise DeliveryError(str(error)) from None
 
 
 def normalize_chat_reference(value):
@@ -463,6 +471,7 @@ class Delivery:
             if action == 'edit' and not publication:
                 raise DeliveryError('Для правки нужен сохранённый message_id.')
             compiled = compile_post(post)
+            formatting = publication_format(post, compiled)
             try:
                 validate_media(self.root, post)
             except ValueError:
@@ -480,7 +489,8 @@ class Delivery:
                         'action': action, 'new_publication': bool(new_publication),
                         'publication_anchor': _digest(publication),
                         'prior_message_id': publication['message_id'] if action == 'edit' else None,
-                        'markdown': compiled['markdown'], 'media': compiled['media']}
+                        'markdown': compiled['markdown'], 'media': compiled['media'],
+                        'formatting': formatting}
             operation_id = str(uuid.uuid4())
             fingerprint = _digest({'operation_id': operation_id, 'snapshot': snapshot, 'nonce': secrets.token_hex(24)})
             with self.conn:
@@ -528,6 +538,11 @@ class Delivery:
             if post['version'] != snapshot['version'] or post['fingerprint'] != snapshot['version_hash'] or self._destination(post) != snapshot['source_destination']:
                 raise DeliveryError('Версия или назначение изменились; требуется новый review.')
             compiled = compile_post(post)
+            formatting = publication_format(post, compiled)
+            if (snapshot.get('formatting') != formatting
+                    or compiled['markdown'] != snapshot['markdown']
+                    or compiled['media'] != snapshot['media']):
+                raise DeliveryError('Правила оформления или результат компиляции изменились; нужны новый review и разрешение.')
             try:
                 validate_media(self.root, post)
             except ValueError:

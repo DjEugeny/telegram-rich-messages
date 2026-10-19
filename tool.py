@@ -10,7 +10,7 @@ import time
 
 from core import Store, MediaValidationError, create_demo, import_image, import_media, import_video
 import dashboard
-from delivery import Delivery, DeliveryError, _atomic_json, load_api, normalize_chat_reference, set_token
+from delivery import Delivery, DeliveryError, _atomic_json, load_api, normalize_chat_reference, publication_format, set_token
 from scheduling import SchedulingError
 from text_blocks import parse_text_blocks
 
@@ -212,6 +212,11 @@ def main(argv=None):
                         return 0
                     if operation['status'] != 'reviewed':
                         raise DeliveryError('Повтор заблокирован; выполните recover/resolve.')
+                    formatting = publication_format(store.get(operation['post_id']))
+                    if operation['snapshot'].get('formatting') != formatting:
+                        raise DeliveryError('Правила оформления изменились; нужны новый review и разрешение.')
+                elif command == 'review':
+                    publication_format(store.get(arguments.post_id))
                 manager.api = load_api(root)
             if command == 'check':
                 destination = manager.check(arguments.chat, arguments.thread_id, arguments.media)
